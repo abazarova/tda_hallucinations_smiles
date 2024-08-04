@@ -52,8 +52,8 @@ def grab_attention_weights(
         ).attentions  # layer x sample x head x n_token x n_token
 
     ntokens = inputs["attention_mask"].sum(dim=-1).tolist()
-
     f = lambda x: x.cpu().half().numpy()
+    attn_matrices = attn_matrices[15], attn_matrices[-1]
     attn_matrices = np.asarray([f(mx) for mx in attn_matrices])
 
     return list(zip(ids, ntokens, attn_matrices.swapaxes(0, 1)))
@@ -144,7 +144,7 @@ if __name__ == "__main__":
             model,
             tokenizer,
             sentences[i : i + dump_size],
-            max_len=512,
+            max_len=1024,
             batch_size=4,
             save_path=save_path / f"{args.task}/pt_{i // dump_size}",
         )

@@ -1,16 +1,17 @@
-from scripts import ripser_count, stats_count, dist2patterns_count
-
-import numpy as np
+import argparse
 import json
+import os
+from collections import defaultdict
+from multiprocessing import Pool, Process, Queue
 from pathlib import Path
 
-from multiprocessing import Pool, Process, Queue
-from tqdm import trange, tqdm
-import argparse
-from collections import defaultdict
+import dist2patterns_count
+import numpy as np
+import ripser_count
+import stats_count
+from tqdm import tqdm, trange
 
-import os
-os.chdir("..")
+os.chdir('/app')
 
 RIPSER_FEATURES=[
     'h0_s', 
@@ -56,13 +57,13 @@ if __name__=="__main__":
     parser.add_argument("--n_dump", type=int, default=5)
     parser.add_argument("--n_workers", type=int, default=20)
     parser.add_argument("--cap", type=int, default=500)
-    parser.add_argument("--dim", type=int, default=0)
+    parser.add_argument("--dim", type=int, default=1)
     parser.add_argument("--lower_bound", type=float, default=0.001)
 
     args = parser.parse_args()
     
     data_path = Path(args.data_path)
-    attn_mx_filename = lambda i: data_path / f"/pt_{i}/attn_matrices.npz"
+    attn_mx_filename = lambda i: data_path / f"pt_{i}/attn_matrices.npz"
     ntokens_filename = lambda i: data_path / f"pt_{i}/tokens_count.json"
     num_files = len(os.listdir(data_path))
 
@@ -113,31 +114,35 @@ if __name__=="__main__":
                 ntokens = json.load(f)
 
             mx_list, ntokens_list = [], []
+
+            cnt = 0
             for key in attn_matrices.keys():
                 mx_list.append(attn_matrices[key])
                 ntokens_list.append(ntokens[key])
                 keys.append(key)
+                cnt += 1
+                if cnt > 10:
+                    break
             
             barcodes = defaultdict(list)
 
             split = split_data(mx_list, ntokens_list, number_of_splits)
             for matrices, ntokens in tqdm(split, leave=False):
-                p = Process(
-                    target=subprocess_wrap,
-                    args=(
-                        queue,
-                        ripser_count.get_only_barcodes,
-                        (matrices, ntokens, args.dim, args.lower_bound)
-                    )
-                )
-                p.start()
-                barcodes_part = queue.get()
-                p.join()
-                p.close()
+                # p = Process(
+                #     target=subprocess_wrap,
+                #     args=(
+                #         queue,
+                #         ripser_count.get_only_barcodes,
+                #         (matrices, ntokens, args.dim, args.lower_bound)
+                #     )
+                # )
+                # p.start()
+                # barcodes_part = queue.get()
+                # p.join()
+                # p.close()
+                barcodes_part = ripser_count.get_only_barcodes(matrices, ntokens, args.dim, args.lower_bound)
                 
                 barcodes = ripser_count.unite_barcodes(barcodes, barcodes_part)
-                print(barcodes.shape)  
-                break  
             ripser_count.save_barcodes(barcodes, save_path / f"barcodes_{i}.json")
 
         features_array = []
@@ -145,7 +150,7 @@ if __name__=="__main__":
         for filename in trange(num_files, desc='Calculating ripser++ features'):
             with open(save_path / f"barcodes_{i}.json", "r") as f:
                 barcodes = json.load(f)
-            print(f"Barcodes loaded from: {args.save_path / f"barcodes_{i}.json"}", flush=True)
+            print(f"Barcodes loaded from: {args.save_path}/barcodes_{i}.json", flush=True)
             features_part = []
             for layer in barcodes:
                 features_layer = []

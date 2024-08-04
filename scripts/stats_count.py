@@ -9,7 +9,7 @@ from tqdm import tqdm, trange
 def crop_matrix(matrix: np.ndarray, n_tokens: int) -> np.ndarray:
     """Return normalized submatrix of first n_tokens"""
     matrix = matrix[:n_tokens, :n_tokens]
-    matrix /= matrix.sum(axis=1, keepdims=True)
+    matrix /= (matrix.sum(axis=1, keepdims=True) + 1e-3)
     return matrix
 
 
@@ -214,7 +214,7 @@ def b0_b1(graph_lists: list[list[nx.MultiDiGraph]], verbose: bool = False):
         b0, b1 = [], []
         for graph in graph_list:
             graph = nx.Graph(graph.to_undirected())
-            cc = nx.number_connected_components(g)
+            cc = nx.number_connected_components(graph)
             e = graph.number_of_edges()
             v = graph.number_of_nodes()
             b0.append(cc)
@@ -285,7 +285,7 @@ def count_top_stats(
     ntokens_array: np.ndarray,
     stats_to_count={"s", "e", "c", "v", "b0b1"},
     stats_cap: int = 500,
-    verbose: bool = True,
+    verbose: bool = False,
 ):
     """
     The main function for calculating topological invariants. Unites the
@@ -312,7 +312,7 @@ def count_top_stats(
             g_lists, _ = adj_ms_to_nx_lists(
                 adj_ms,
                 thresholds_array=thresholds,
-                ntokens_array=ntokens_array,
+                n_tokens_list=ntokens_array,
                 verbose=False,
             )
             feat_lists = []

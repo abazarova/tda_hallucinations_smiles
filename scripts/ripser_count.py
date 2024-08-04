@@ -34,7 +34,7 @@ from tqdm import tqdm
 def crop_matrix(matrix: np.ndarray, n_tokens: int) -> np.ndarray:
     """Return normalized submatrix of first n_tokens"""
     matrix = matrix[:n_tokens, :n_tokens]
-    matrix /= matrix.sum(axis=1, keepdims=True)
+    matrix /= (matrix.sum(axis=1, keepdims=True) + 1e-3)
     return matrix
 
 
@@ -145,31 +145,28 @@ def matrix_to_ripser(matrix, ntokens, lower_bound=0.0):
     matrix = crop_matrix(matrix, ntokens)
     matrix = (matrix > lower_bound).astype(int) * matrix
     matrix = 1.0 - matrix
-    matrix -= np.diag(np.diag(matrix))  # 0 on diagonal
-    matrix = np.minimum(
-        matrix.T, matrix
-    )  # symmetrical, edge emerges if at least one direction is working
+    matrix -= np.diag(np.diag(matrix)) # 0 on diagonal
+    matrix = np.minimum(matrix.T, matrix) # symmetrical, edge emerges if at least one direction is working
     return matrix
 
 
 def run_ripser_on_matrix(matrix, dim):
-    barcode = rpp.run(f"--format distance --dim {dim}", data=matrix)
+    barcode = rpp.run(f"--dim {dim} --format distance", data=matrix)
     return barcode
 
 
-def get_barcodes(matrices, ntokens_array=[], dim=1, lower_bound=0.0, layer_head=(0, 0)):
+def get_barcodes(matrices, ntokens_array=[], dim=1, lower_bound=0.0):
     """Get barcodes from matrix"""
     barcodes = []
-
     for matrix, ntokens in zip(matrices, ntokens_array):
         matrix = matrix_to_ripser(matrix, ntokens, lower_bound)
-        barcode = run_ripser_on_matrix(matrix, dim)
+        barcode = rpp.run(f"--dim {dim} --format distance", matrix)
         barcodes.append(barcode)
     return barcodes
 
 
 def calculate_features_r(
-    adj_matrices, dim, lower_bound, ripser_features, ntokens_array, logfile="log.txt"
+    adj_matrices, dim, lower_bound, ripser_features, ntokens_array
 ):
     """Calculate ripser barcode features for adj_matrices"""
     features = []
@@ -195,7 +192,7 @@ def get_only_barcodes(adj_matrices, ntokens_array, dim, lower_bound):
     for layer, head in tqdm(product(layers, heads), total=n_layers * n_heads):
         matrices = adj_matrices[:, layer, head, :, :]
         barcodes[(layer, head)] = get_barcodes(
-            matrices, ntokens_array, dim, lower_bound, (layer, head)
+            matrices, ntokens_array, dim, lower_bound
         )
     return barcodes
 
@@ -218,7 +215,6 @@ def save_barcodes(barcodes, filename):
 def unite_barcodes(barcodes, barcodes_part):
     """Unite 2 barcodes"""
     for layer, head in barcodes_part:
-        print(layer, head)
         barcodes[(layer, head)].extend(barcodes_part[(layer, head)])
     return barcodes
 
