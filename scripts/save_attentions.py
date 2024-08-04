@@ -144,8 +144,8 @@ if __name__ == "__main__":
             model,
             tokenizer,
             sentences[i : i + dump_size],
-            max_len=128,
-            batch_size=16,
+            max_len=512,
+            batch_size=4,
             save_path=save_path / f"{args.task}/pt_{i // dump_size}",
         )
 
