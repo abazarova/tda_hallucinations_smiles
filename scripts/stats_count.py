@@ -15,7 +15,7 @@ def crop_matrix(matrix: np.ndarray, n_tokens: int) -> np.ndarray:
 
 def get_filtered_mat_list(adj_matrix: np.ndarray, thresholds: list, n_tokens: int):
     """
-    Converts adjancency matrix with real weights into list of binary matricies.
+    Converts adjancency matrix with real weights into list of binary matrices.
     For each threshold, those weights of adjancency matrix, which are less than
     threshold, get "filtered out" (set to 0), remained weights are set to ones.
 
@@ -25,7 +25,7 @@ def get_filtered_mat_list(adj_matrix: np.ndarray, thresholds: list, n_tokens: in
         n_tokens (int)
 
     Returns:
-        filtered_matricies (list[np.array[int, int]])
+        filtered_matrices (list[np.array[int, int]])
     """
     cropped_matrix = crop_matrix(adj_matrix, n_tokens)
     filtered_matrices = [np.where(cropped_matrix >= th, 1, 0) for th in thresholds]
@@ -62,7 +62,7 @@ def adj_ms_to_nx_lists(
     verbose: bool = True,
 ):
     """
-    Executes adj_m_to_nx_list for each matrix in adj_matricies array, arranges
+    Executes adj_m_to_nx_list for each matrix in adj_matrices array, arranges
     the results. If verbose==True, shows progress bar.
 
     Args:
@@ -292,7 +292,7 @@ def count_top_stats(
     functional of all functions above.
 
     Args:
-        adj_matricies (np.array[float, float, float, float, float])
+        adj_matrices (np.array[float, float, float, float, float])
         thresholds_array (list[float])
         stats_to_count (str)
         function_for_v (function)

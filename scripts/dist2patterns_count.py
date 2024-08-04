@@ -97,7 +97,7 @@ def attention_to_ids(matrices, list_of_ids, token_id):
 
 
 def count_template_features(
-    matricies,
+    matrices,
     feature_list=["self", "beginning", "prev", "next", "comma", "dot"],
     ids=None,
 ):
@@ -106,29 +106,29 @@ def count_template_features(
     dot_id = 1012
     for feature in feature_list:
         if feature == "self":
-            features.append(attention_to_self(matricies))
+            features.append(attention_to_self(matrices))
         elif feature == "beginning":
-            features.append(attention_to_beginning(matricies))
+            features.append(attention_to_beginning(matrices))
         elif feature == "prev":
-            features.append(attention_to_prev_token(matricies))
+            features.append(attention_to_prev_token(matrices))
         elif feature == "next":
-            features.append(attention_to_next_token(matricies))
+            features.append(attention_to_next_token(matrices))
         elif feature == "comma":
-            features.append(attention_to_ids(matricies, ids, comma_id))
+            features.append(attention_to_ids(matrices, ids, comma_id))
         elif feature == "dot":
-            features.append(attention_to_ids(matricies, ids, dot_id))
+            features.append(attention_to_ids(matrices, ids, dot_id))
     return np.array(features)
 
 
-def calculate_features_t(adj_matricies, template_features, ids=None):
-    """Calculate template features for adj_matricies"""
+def calculate_features_t(adj_matrices, template_features, ids=None):
+    """Calculate template features for adj_matrices"""
     features = []
-    for layer in range(adj_matricies.shape[1]):
+    for layer in range(adj_matrices.shape[1]):
         features.append([])
-        for head in range(adj_matricies.shape[2]):
-            matricies = adj_matricies[:, layer, head, :, :]
+        for head in range(adj_matrices.shape[2]):
+            matrices = adj_matrices[:, layer, head, :, :]
             lh_features = count_template_features(
-                matricies, template_features, ids
+                matrices, template_features, ids
             )  # samples X n_features
             features[-1].append(lh_features)
     return np.asarray(features)  # layer X head X n_features X samples

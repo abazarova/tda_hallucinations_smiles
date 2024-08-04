@@ -6,7 +6,6 @@ import numpy as np
 import ripserplusplus as rpp
 from tqdm import tqdm
 
-
 ###################################
 # RIPSER FEATURE CALCULATION FORMAT
 ###################################
@@ -170,16 +169,16 @@ def get_barcodes(matrices, ntokens_array=[], dim=1, lower_bound=0.0, layer_head=
 
 
 def calculate_features_r(
-    adj_matricies, dim, lower_bound, ripser_features, ntokens_array, logfile="log.txt"
+    adj_matrices, dim, lower_bound, ripser_features, ntokens_array, logfile="log.txt"
 ):
-    """Calculate ripser barcode features for adj_matricies"""
+    """Calculate ripser barcode features for adj_matrices"""
     features = []
-    for layer in tqdm(range(adj_matricies.shape[1])):
+    for layer in tqdm(range(adj_matrices.shape[1])):
         features.append([])
-        for head in range(adj_matricies.shape[2]):
-            matricies = adj_matricies[:, layer, head, :, :]
+        for head in range(adj_matrices.shape[2]):
+            matrices = adj_matrices[:, layer, head, :, :]
             barcodes = get_barcodes(
-                matricies, ntokens_array, dim, lower_bound, (layer, head)
+                matrices, ntokens_array, dim, lower_bound, (layer, head)
             )
             lh_features = count_ripser_features(
                 barcodes, ripser_features
@@ -191,12 +190,12 @@ def calculate_features_r(
 def get_only_barcodes(adj_matrices, ntokens_array, dim, lower_bound):
     """Get barcodes from adj matrices for each layer, head"""
     barcodes = {}
-    layers, heads = range(adj_matrices.shape[1]), range(adj_matrices.shape[2])
-    for layer, head in product(layers, heads):
-        print(layer, head)
-        matricies = adj_matrices[:, layer, head, :, :]
+    _, n_layers, n_heads, _, _ = adj_matrices.shape
+    layers, heads = range(n_layers), range(n_heads)
+    for layer, head in tqdm(product(layers, heads), total=n_layers * n_heads):
+        matrices = adj_matrices[:, layer, head, :, :]
         barcodes[(layer, head)] = get_barcodes(
-            matricies, ntokens_array, dim, lower_bound, (layer, head)
+            matrices, ntokens_array, dim, lower_bound, (layer, head)
         )
     return barcodes
 
