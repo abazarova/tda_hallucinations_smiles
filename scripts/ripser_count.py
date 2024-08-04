@@ -1,6 +1,11 @@
+import json
+from collections import defaultdict
+from itertools import product
+
 import numpy as np
 import ripserplusplus as rpp
 from tqdm import tqdm
+
 
 ###################################
 # RIPSER FEATURE CALCULATION FORMAT
@@ -153,9 +158,7 @@ def run_ripser_on_matrix(matrix, dim):
     return barcode
 
 
-def get_barcodes(
-    matrices, ntokens_array=[], dim=1, lower_bound=0.0, layer_head=(0, 0)
-):
+def get_barcodes(matrices, ntokens_array=[], dim=1, lower_bound=0.0, layer_head=(0, 0)):
     """Get barcodes from matrix"""
     barcodes = []
 
@@ -183,3 +186,52 @@ def calculate_features_r(
             )  # samples X n_features
             features[-1].append(lh_features)
     return np.asarray(features)  # layer X head X samples X n_features
+
+
+def get_only_barcodes(adj_matrices, ntokens_array, dim, lower_bound):
+    """Get barcodes from adj matrices for each layer, head"""
+    barcodes = {}
+    layers, heads = range(adj_matrices.shape[1]), range(adj_matrices.shape[2])
+    for layer, head in product(layers, heads):
+        print(layer, head)
+        matricies = adj_matrices[:, layer, head, :, :]
+        barcodes[(layer, head)] = get_barcodes(
+            matricies, ntokens_array, dim, lower_bound, (layer, head)
+        )
+    return barcodes
+
+
+def format_barcodes(barcodes):
+    """Reformat barcodes to json-compatible format"""
+    return [{d: b[d].tolist() for d in b} for b in barcodes]
+
+
+def save_barcodes(barcodes, filename):
+    """Save barcodes to file"""
+    formatted_barcodes = defaultdict(dict)
+    for layer, head in barcodes:
+        formatted_barcodes[layer][head] = format_barcodes(barcodes[(layer, head)])
+
+    with open(filename, "w") as f:
+        json.dump(formatted_barcodes, f)
+
+
+def unite_barcodes(barcodes, barcodes_part):
+    """Unite 2 barcodes"""
+    for layer, head in barcodes_part:
+        print(layer, head)
+        barcodes[(layer, head)].extend(barcodes_part[(layer, head)])
+    return barcodes
+
+
+def reformat_barcodes(barcodes):
+    """Return barcodes to their original format"""
+    formatted_barcodes = []
+    for barcode in barcodes:
+        formatted_barcode = {}
+        for dim in barcode:
+            formatted_barcode[int(dim)] = np.asarray(
+                [(b, d) for b,d in barcode[dim]], dtype=[('birth', '<f4'), ('death', '<f4')]
+            )
+        formatted_barcodes.append(formatted_barcode)
+    return formatted_barcodes
