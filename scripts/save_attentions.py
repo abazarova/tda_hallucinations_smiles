@@ -40,7 +40,7 @@ def grab_attention_weights(
         return_tensors="pt",
         add_special_tokens=True,
         max_length=max_len,  # max length to truncate/pad
-        pad_to_max_length=True,
+        padding="max_length",
         truncation=True,
     ).to(device)
 
@@ -111,10 +111,7 @@ def text_preprocessing(text: str) -> str:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--task", type=str, choices=["qa", "summ"], default="qa"
-    )
-    parser.add_argument(
-        "--model_id", type=str, default="mistralai/Mistral-7B-Instruct-v0.1"
+        "--model_id", type=str, default="meta-llama/Llama-2-7b-chat-hf"
     )
     parser.add_argument(
         "--save_path", type=str, default="assets/attention_maps"
@@ -125,13 +122,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
     save_path = Path(args.save_path)
 
-    data = pd.read_csv(DATA_PATH / f"{args.task}_samples.csv")
+    data = pd.read_csv(DATA_PATH / f"qa_samples.csv")
     
     data = data[data.apply(lambda x: x['model'].lower() in args.model_id.lower(), axis=1)]
     data["id"] = data["id"].apply(str)
     data.fillna("", inplace=True)
 
     model, tokenizer = load_model_and_tokenizer(args.model_id, args.device)
+    model_name = data.iloc[0]["model"]
 
     sentences = list(zip(data["id"], data["prompt"] + data["response"]))
 
@@ -146,7 +144,7 @@ if __name__ == "__main__":
             sentences[i : i + dump_size],
             max_len=1024,
             batch_size=4,
-            save_path=save_path / f"{args.task}/pt_{i // dump_size}",
+            save_path=save_path / f"{model_name}/pt_{i // dump_size}",
         )
 
         logger.info(f"Dumped part {i // dump_size}/{n_dump}")

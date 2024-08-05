@@ -34,7 +34,7 @@ from tqdm import tqdm
 def crop_matrix(matrix: np.ndarray, n_tokens: int) -> np.ndarray:
     """Return normalized submatrix of first n_tokens"""
     matrix = matrix[:n_tokens, :n_tokens]
-    matrix /= (matrix.sum(axis=1, keepdims=True) + 1e-3)
+    matrix /= matrix.sum(axis=1, keepdims=True)
     return matrix
 
 
@@ -160,6 +160,8 @@ def get_barcodes(matrices, ntokens_array=[], dim=1, lower_bound=0.0):
     barcodes = []
     for matrix, ntokens in zip(matrices, ntokens_array):
         matrix = matrix_to_ripser(matrix, ntokens, lower_bound)
+        if (matrix != matrix.T).any():
+            breakpoint()
         barcode = rpp.run(f"--dim {dim} --format distance", matrix)
         barcodes.append(barcode)
     return barcodes

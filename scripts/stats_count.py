@@ -9,7 +9,7 @@ from tqdm import tqdm, trange
 def crop_matrix(matrix: np.ndarray, n_tokens: int) -> np.ndarray:
     """Return normalized submatrix of first n_tokens"""
     matrix = matrix[:n_tokens, :n_tokens]
-    matrix /= (matrix.sum(axis=1, keepdims=True) + 1e-3)
+    matrix /= matrix.sum(axis=1, keepdims=True)
     return matrix
 
 

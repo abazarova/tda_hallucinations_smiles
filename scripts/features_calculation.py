@@ -48,7 +48,7 @@ if __name__=="__main__":
         "--task", type=str, choices=["stats", "barcodes", "distances"], default="stats"
     )
     parser.add_argument(
-        "--data_path", type=str, default="assets/attention_maps/qa"
+        "--data_path", type=str, default="assets/attention_maps/llama-2-7b-chat"
     )
     parser.add_argument(
         "--save_path", type=str, default="assets/tda_features"
@@ -63,11 +63,13 @@ if __name__=="__main__":
     args = parser.parse_args()
     
     data_path = Path(args.data_path)
+    model_name = data_path.name
     attn_mx_filename = lambda i: data_path / f"pt_{i}/attn_matrices.npz"
     ntokens_filename = lambda i: data_path / f"pt_{i}/tokens_count.json"
     num_files = len(os.listdir(data_path))
 
-    save_path = Path(args.save_path)
+    save_path = Path(args.save_path) / model_name
+    save_path.mkdir(exist_ok=True)
 
     if args.task == "stats":
         stats_names = "s_e_v_c_b0b1"
@@ -87,11 +89,15 @@ if __name__=="__main__":
             
             mx_list, ntokens_list = [], []
             keys_pt = list(attn_matrices.keys())
+            cnt = 0
             for key in keys_pt:
                 mx_list.append(attn_matrices[key])
                 ntokens_list.append(ntokens[key])
+                cnt += 1
+                if cnt > 40:
+                    break
             keys += keys_pt
-
+            
             split = split_data(np.asarray(mx_list), np.asarray(ntokens_list), num_of_workers=num_of_workers)
             args = [(mxs, thresholds, tokens, stats_names.split("_"), stats_cap) for mxs, tokens in split]
             stats_features_ = pool.starmap(
@@ -106,7 +112,6 @@ if __name__=="__main__":
     elif args.task == "barcodes":
         queue = Queue()
         number_of_splits = 2
-        keys = []
         for i in trange(num_files, desc="Barcodes calculation"):
             attn_matrices = np.load(attn_mx_filename(i))
 
@@ -114,35 +119,29 @@ if __name__=="__main__":
                 ntokens = json.load(f)
 
             mx_list, ntokens_list = [], []
-
-            cnt = 0
+            
             for key in attn_matrices.keys():
                 mx_list.append(attn_matrices[key])
                 ntokens_list.append(ntokens[key])
-                keys.append(key)
-                cnt += 1
-                if cnt > 10:
-                    break
-            
+ 
             barcodes = defaultdict(list)
-
-            split = split_data(mx_list, ntokens_list, number_of_splits)
+            split = split_data(np.asarray(mx_list), np.asarray(ntokens_list), number_of_splits)
             for matrices, ntokens in tqdm(split, leave=False):
-                # p = Process(
-                #     target=subprocess_wrap,
-                #     args=(
-                #         queue,
-                #         ripser_count.get_only_barcodes,
-                #         (matrices, ntokens, args.dim, args.lower_bound)
-                #     )
-                # )
-                # p.start()
-                # barcodes_part = queue.get()
-                # p.join()
-                # p.close()
-                barcodes_part = ripser_count.get_only_barcodes(matrices, ntokens, args.dim, args.lower_bound)
+                p = Process(
+                    target=subprocess_wrap,
+                    args=(
+                        queue,
+                        ripser_count.get_only_barcodes,
+                        (matrices, ntokens, args.dim, args.lower_bound)
+                    )
+                )
+                p.start()
+                barcodes_part = queue.get()
+                p.join()
+                p.close()
                 
                 barcodes = ripser_count.unite_barcodes(barcodes, barcodes_part)
+            
             ripser_count.save_barcodes(barcodes, save_path / f"barcodes_{i}.json")
 
         features_array = []
@@ -164,6 +163,39 @@ if __name__=="__main__":
         features = np.concatenate(features_array, axis=2)
         np.save(save_path / "ripser_features", features)
     
-    else:
-        raise NotImplementedError
+    else: 
+        pool = Pool(args.n_workers)
+        feature_names = ['self', 'beginning', 'prev', 'next', 'comma', 'dot']
+        features_array, keys = [], []
+
+        for i in trange(num_files):
+            attn_matrices = np.load(attn_mx_filename(i))
+
+            with open(ntokens_filename(i), "r") as f:
+                ntokens = json.load(f)
+
+            with open(data_path / "input_ids.json", "r") as f:
+                input_ids = json.load(f)
+            
+            mx_list, ntokens_list, input_ids_list = [], [], []
+            keys_pt = list(attn_matrices.keys())
+            for key in attn_matrices.keys():
+                mx_list.append(attn_matrices[key])
+                ntokens_list.append(ntokens[key])
+                input_ids_list.append(input_ids[key])
+
+            n_matrices = len(mx_list)
+            split = np.array_split(np.arange(n_matrices), args.n_workers)
+            ids_split = [np.asarray(input_ids_list)[idx] for idx in split]
+            data_split = [np.asarray(mx_list)[idx] for idx in split]
+            args = [(m, feature_names, list_of_ids) for m, list_of_ids in zip(data_split, ids_split)]
+    
+            features_array_part = pool.starmap(
+                dist2patterns_count.calculate_features_t, args
+            )
+
+        features = np.concatenate(features_array, axis=3)
+        np.save(save_path / "template_features", features)
+
+
 

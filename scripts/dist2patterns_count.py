@@ -1,5 +1,5 @@
 import numpy as np
-
+from tqdm import trange
 
 def matrix_distance(matrices: np.ndarray, template: np.ndarray, broadcast: bool = True):
     """
@@ -102,8 +102,8 @@ def count_template_features(
     ids=None,
 ):
     features = []
-    comma_id = 1010
-    dot_id = 1012
+    comma_id = 29892
+    dot_id = 29889
     for feature in feature_list:
         if feature == "self":
             features.append(attention_to_self(matrices))
@@ -123,7 +123,7 @@ def count_template_features(
 def calculate_features_t(adj_matrices, template_features, ids=None):
     """Calculate template features for adj_matrices"""
     features = []
-    for layer in range(adj_matrices.shape[1]):
+    for layer in trange(adj_matrices.shape[1]):
         features.append([])
         for head in range(adj_matrices.shape[2]):
             matrices = adj_matrices[:, layer, head, :, :]
